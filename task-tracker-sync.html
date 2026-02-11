@@ -1,0 +1,1897 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="タスク管理">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23667eea'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white'>📋</text></svg>">
+    <title>日次タスク管理 - 同期版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .sync-status {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .sync-status.online {
+            background: rgba(81, 207, 102, 0.3);
+        }
+
+        .sync-status.offline {
+            background: rgba(255, 107, 107, 0.3);
+        }
+
+        .sync-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: white;
+        }
+
+        .sync-status.online .sync-indicator {
+            background: #51cf66;
+            animation: pulse 2s infinite;
+        }
+
+        .sync-status.offline .sync-indicator {
+            background: #ff6b6b;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            flex: 1;
+            min-width: 150px;
+            padding: 15px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .tab:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .tab.active:hover {
+            background: white;
+        }
+
+        .content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .view {
+            display: none;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        /* タスク入力エリア */
+        .task-input-area {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+        }
+
+        .task-input-area h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .date-inputs {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .date-inputs label {
+            font-size: 14px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        input[type="email"],
+        input[type="password"],
+        textarea {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        input[type="date"] {
+            padding: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 60px;
+            resize: vertical;
+        }
+
+        input[type="text"]:focus,
+        input[type="date"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* 今日のタスクリスト */
+        .task-list {
+            list-style: none;
+        }
+
+        .task-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9ff;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .task-item:hover {
+            background: #eef0ff;
+        }
+
+        .task-item.completed {
+            opacity: 0.6;
+        }
+
+        .task-item-header {
+            display: flex;
+            align-items: center;
+        }
+
+        .task-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 15px;
+            cursor: pointer;
+        }
+
+        .task-item .task-text {
+            flex: 1;
+            font-size: 16px;
+        }
+
+        .task-item.completed .task-text {
+            text-decoration: line-through;
+        }
+
+        .task-item .task-memo {
+            margin: 10px 0 10px 35px;
+            padding: 10px;
+            background: white;
+            border-left: 3px solid #667eea;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #666;
+            white-space: pre-wrap;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            margin-left: 35px;
+        }
+
+        .task-actions button {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+
+        .task-item .expire-btn {
+            background: #ff6b6b;
+        }
+
+        .task-item .expire-btn:hover {
+            background: #ee5a5a;
+        }
+
+        .task-item .edit-btn {
+            background: #667eea;
+        }
+
+        .task-item .edit-btn:hover {
+            background: #5568d3;
+        }
+
+        .task-item .delete-btn {
+            background: #dc3545;
+        }
+
+        .task-item .delete-btn:hover {
+            background: #c82333;
+        }
+
+        .task-item .pause-btn {
+            background: #ffa726;
+        }
+
+        .task-item .pause-btn:hover {
+            background: #fb8c00;
+        }
+
+        .task-item .resume-btn {
+            background: #51cf66;
+        }
+
+        .task-item .resume-btn:hover {
+            background: #40c057;
+        }
+
+        .task-paused-indicator {
+            display: inline-block;
+            background: #ffa726;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-left: 10px;
+            font-weight: bold;
+        }
+
+        .pause-period {
+            background: #fff3e0;
+            border-left: 3px solid #ffa726;
+            padding: 8px;
+            margin: 5px 0 5px 35px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .pause-period-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+        }
+
+        .pause-period-item button {
+            padding: 4px 8px;
+            font-size: 12px;
+            background: #dc3545;
+        }
+
+        .task-dates {
+            margin-left: 35px;
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        /* カレンダー */
+        .calendar {
+            margin-top: 20px;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .calendar-header h2 {
+            color: #667eea;
+            font-size: 1.5em;
+        }
+
+        .calendar-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .calendar-nav button {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            max-width: 100%;
+        }
+
+        .calendar-day-header {
+            text-align: center;
+            font-weight: bold;
+            padding: 8px 4px;
+            color: #667eea;
+            font-size: 12px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-height: 50px;
+        }
+
+        .calendar-day:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .calendar-day.other-month {
+            opacity: 0.3;
+        }
+
+        .calendar-day.today {
+            border-color: #667eea;
+            border-width: 3px;
+        }
+
+        .day-number {
+            font-weight: bold;
+            margin-bottom: 2px;
+            font-size: 14px;
+        }
+
+        .completion-rate {
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 2px;
+        }
+
+        .completion-rate.high {
+            color: #51cf66;
+        }
+
+        .completion-rate.medium {
+            color: #ffd43b;
+        }
+
+        .completion-rate.low {
+            color: #ff6b6b;
+        }
+
+        .no-tasks {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-size: 18px;
+        }
+
+        /* モーダル */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-content h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .modal-content label {
+            display: block;
+            margin-bottom: 5px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .modal-content input,
+        .modal-content textarea {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .modal-actions button {
+            min-width: 100px;
+        }
+
+        .cancel-btn {
+            background: #999;
+        }
+
+        .cancel-btn:hover {
+            background: #888;
+        }
+
+        .delete-confirm-btn {
+            background: #dc3545;
+        }
+
+        .delete-confirm-btn:hover {
+            background: #c82333;
+        }
+
+        /* 未来のタスクビュー */
+        .future-tasks-container {
+            margin-top: 20px;
+        }
+
+        .date-section {
+            margin-bottom: 30px;
+        }
+
+        .date-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        /* 設定画面 */
+        .settings-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+        }
+
+        .settings-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .auth-status {
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .auth-status.logged-in {
+            border-left: 4px solid #51cf66;
+        }
+
+        .auth-status.logged-out {
+            border-left: 4px solid #ff6b6b;
+        }
+
+        /* モバイル対応 */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8em;
+                margin-bottom: 20px;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .calendar-header h2 {
+                font-size: 1.2em;
+            }
+
+            .calendar-nav button {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            .calendar-grid {
+                gap: 3px;
+            }
+
+            .calendar-day {
+                min-height: 45px;
+                padding: 2px;
+                border-width: 1px;
+            }
+
+            .calendar-day.today {
+                border-width: 2px;
+            }
+
+            .calendar-day-header {
+                padding: 6px 2px;
+                font-size: 11px;
+            }
+
+            .day-number {
+                font-size: 12px;
+                margin-bottom: 1px;
+            }
+
+            .completion-rate {
+                font-size: 13px;
+                margin-top: 1px;
+            }
+
+            .task-input-area {
+                padding: 15px;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            .date-inputs {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .date-inputs label {
+                margin-top: 10px;
+            }
+
+            input[type="text"] {
+                min-width: 100%;
+            }
+
+            .tab {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .task-actions {
+                flex-wrap: wrap;
+            }
+
+            .modal-content {
+                padding: 20px;
+                width: 95%;
+            }
+        }
+
+        /* iPhone 16 Pro Max サイズ (430px幅)に最適化 */
+        @media (max-width: 430px) {
+            .calendar-day {
+                min-height: 40px;
+            }
+
+            .day-number {
+                font-size: 11px;
+            }
+
+            .completion-rate {
+                font-size: 12px;
+            }
+
+            .calendar-day-header {
+                font-size: 10px;
+            }
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .warning-box {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        /* ラジオボタンのスタイル */
+        input[type="radio"] {
+            cursor: pointer;
+        }
+
+        input[type="radio"]:checked + span {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        label:has(input[type="radio"]:checked) {
+            border-color: #667eea !important;
+            background: #f8f9ff !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 日次タスク管理</h1>
+        
+        <div class="sync-status" id="sync-status">
+            <span class="sync-indicator"></span>
+            <span id="sync-text">接続中...</span>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('today')">今日のタスク</button>
+            <button class="tab" onclick="switchTab('paused')">停止中</button>
+            <button class="tab" onclick="switchTab('future')">未来のタスク</button>
+            <button class="tab" onclick="switchTab('calendar')">カレンダー</button>
+            <button class="tab" onclick="switchTab('settings')">設定</button>
+        </div>
+
+        <div class="content">
+            <!-- 今日のタスクビュー -->
+            <div id="today-view" class="view active">
+                <div class="task-input-area">
+                    <h2>新しいタスクを追加</h2>
+                    <div class="input-group">
+                        <input type="text" id="new-task-input" placeholder="タスク名を入力..." onkeypress="handleKeyPress(event)">
+                    </div>
+                    <div class="date-inputs">
+                        <label>開始日:</label>
+                        <input type="date" id="start-date-input">
+                        <label>終了日:</label>
+                        <input type="date" id="end-date-input">
+                    </div>
+                    <textarea id="memo-input" placeholder="メモ（任意）"></textarea>
+                    <button onclick="addTask()" style="width: 100%; margin-top: 10px;">追加</button>
+                </div>
+
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-tasks">0</div>
+                        <div class="stat-label">今日のタスク</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="completed-tasks">0</div>
+                        <div class="stat-label">完了</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="completion-percentage">0%</div>
+                        <div class="stat-label">完了率</div>
+                    </div>
+                </div>
+
+                <h2 style="color: #667eea; margin-bottom: 15px;">タスク一覧</h2>
+                <ul class="task-list" id="task-list"></ul>
+            </div>
+
+            <!-- 停止中のタスクビュー -->
+            <div id="paused-view" class="view">
+                <h2 style="color: #667eea; margin-bottom: 20px;">停止中のタスク</h2>
+                <div class="info-box" style="margin-bottom: 20px;">
+                    <strong>💡 ヒント</strong>
+                    <p style="margin-top: 10px;">
+                        現在停止期間中のタスクが表示されます。停止期間を削除すると、すぐにTo Doリストに復帰します。
+                    </p>
+                </div>
+                <div id="paused-tasks-container"></div>
+            </div>
+
+            <!-- 未来のタスクビュー -->
+            <div id="future-view" class="view">
+                <h2 style="color: #667eea; margin-bottom: 20px;">未来のタスク</h2>
+                <div class="future-tasks-container" id="future-tasks-container"></div>
+            </div>
+
+            <!-- カレンダービュー -->
+            <div id="calendar-view" class="view">
+                <div class="calendar">
+                    <div class="calendar-header">
+                        <h2 id="calendar-month"></h2>
+                        <div class="calendar-nav">
+                            <button onclick="previousMonth()">← 前月</button>
+                            <button onclick="nextMonth()">次月 →</button>
+                        </div>
+                    </div>
+                    <div class="calendar-grid" id="calendar-grid"></div>
+                </div>
+            </div>
+
+            <!-- 設定ビュー -->
+            <div id="settings-view" class="view">
+                <h2 style="color: #667eea; margin-bottom: 20px;">設定</h2>
+                
+                <div class="info-box">
+                    <strong>📱 デバイス間同期について</strong>
+                    <p style="margin-top: 10px;">
+                        このアプリはローカルストレージを使用しているため、現在のところデバイス間での自動同期には対応していません。<br>
+                        完全なデバイス間同期を実現するには、以下のような方法があります：
+                    </p>
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li>Firebaseなどのクラウドサービスを使用（要アカウント登録）</li>
+                        <li>自前のサーバーを用意</li>
+                        <li>ブラウザの同期機能を利用（Chrome同期など、一部制限あり）</li>
+                    </ul>
+                </div>
+
+                <div class="settings-section">
+                    <h2>データ管理</h2>
+                    <p style="margin-bottom: 15px; color: #666;">
+                        データはこのデバイスのブラウザに保存されています。
+                    </p>
+                    <button onclick="exportData()" style="margin-right: 10px;">データをエクスポート</button>
+                    <button onclick="document.getElementById('import-file').click()">データをインポート</button>
+                    <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importData(event)">
+                </div>
+
+                <div class="settings-section">
+                    <h2>オフライン機能</h2>
+                    <p style="color: #666; margin-bottom: 10px;">
+                        このアプリはオフラインでも動作します。データはブラウザに保存され、インターネット接続がなくても利用できます。
+                    </p>
+                    <div style="padding: 10px; background: white; border-radius: 8px;">
+                        <strong>✅ オフライン対応済み</strong>
+                        <ul style="margin-top: 10px; margin-left: 20px; color: #666;">
+                            <li>タスクの追加・編集・削除</li>
+                            <li>完了状態の記録</li>
+                            <li>カレンダー表示</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h2>ホーム画面に追加</h2>
+                    <p style="color: #666; margin-bottom: 10px;">
+                        iPhoneでアプリのように使用するには：
+                    </p>
+                    <ol style="margin-left: 20px; color: #666;">
+                        <li>Safariの共有ボタン（□↑）をタップ</li>
+                        <li>「ホーム画面に追加」を選択</li>
+                        <li>「追加」をタップ</li>
+                    </ol>
+                </div>
+
+                <div class="warning-box">
+                    <strong>⚠️ 注意事項</strong>
+                    <p style="margin-top: 10px;">
+                        ブラウザのデータを削除すると、保存されたタスクも消えます。定期的にデータをエクスポートしてバックアップすることをおすすめします。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 編集モーダル -->
+        <div id="edit-modal" class="modal">
+            <div class="modal-content">
+                <h2>タスクを編集</h2>
+                <label>タスク名</label>
+                <input type="text" id="edit-task-name">
+                <label>開始日</label>
+                <input type="date" id="edit-start-date">
+                <label>終了日</label>
+                <input type="date" id="edit-end-date">
+                <label>メモ</label>
+                <textarea id="edit-memo"></textarea>
+                <div class="modal-actions">
+                    <button class="cancel-btn" onclick="closeEditModal()">キャンセル</button>
+                    <button onclick="saveTaskEdit()">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 削除確認モーダル -->
+        <div id="delete-modal" class="modal">
+            <div class="modal-content">
+                <h2>タスクを削除</h2>
+                <p style="margin-bottom: 20px; color: #666;">
+                    このタスクを完全に削除しますか？<br>
+                    <strong style="color: #dc3545;">すべての履歴（過去の完了記録を含む）が削除されます。</strong><br>
+                    この操作は取り消せません。
+                </p>
+                <p id="delete-task-name" style="padding: 15px; background: #f8f9ff; border-radius: 8px; margin-bottom: 20px; font-weight: bold;"></p>
+                <div class="modal-actions">
+                    <button class="cancel-btn" onclick="closeDeleteModal()">キャンセル</button>
+                    <button class="delete-confirm-btn" onclick="deleteTask()">削除する</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 一時停止モーダル -->
+        <div id="pause-modal" class="modal">
+            <div class="modal-content">
+                <h2>タスクを一時停止</h2>
+                <p style="margin-bottom: 20px; color: #666;">
+                    指定した期間、このタスクをTo Doリストと進捗率の計算から除外します。<br>
+                    <strong>過去の完了記録は保持されます。</strong>
+                </p>
+                <p id="pause-task-name" style="padding: 15px; background: #f8f9ff; border-radius: 8px; margin-bottom: 20px; font-weight: bold;"></p>
+                
+                <label style="margin-bottom: 15px; display: block;">停止期間を選択</label>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: flex; align-items: center; padding: 12px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; margin-bottom: 10px; cursor: pointer;">
+                        <input type="radio" name="pause-option" value="today" style="margin-right: 10px; width: 18px; height: 18px;" checked>
+                        <span style="font-weight: normal;">今日だけ</span>
+                    </label>
+                    
+                    <label style="display: flex; align-items: center; padding: 12px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; margin-bottom: 10px; cursor: pointer;">
+                        <input type="radio" name="pause-option" value="tomorrow" style="margin-right: 10px; width: 18px; height: 18px;">
+                        <span style="font-weight: normal;">今日と明日</span>
+                    </label>
+                    
+                    <label style="display: flex; align-items: center; padding: 12px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer;">
+                        <input type="radio" name="pause-option" value="custom" style="margin-right: 10px; width: 18px; height: 18px;" onchange="toggleCustomPauseDates()">
+                        <span style="font-weight: normal;">それ以上（期間を指定）</span>
+                    </label>
+                </div>
+                
+                <div id="custom-pause-dates" style="display: none; margin-top: 15px;">
+                    <label>停止開始日</label>
+                    <input type="date" id="pause-start-date">
+                    <label>停止終了日</label>
+                    <input type="date" id="pause-end-date">
+                </div>
+                
+                <div class="modal-actions">
+                    <button class="cancel-btn" onclick="closePauseModal()">キャンセル</button>
+                    <button onclick="addPausePeriod()">停止期間を追加</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // データ構造
+        let tasks = []; // {id, name, memo, createdDate, startDate, expirationDate, pausePeriods: [{start, end}]}
+        let completions = {}; // {date: [taskIds]}
+        let currentCalendarDate = new Date();
+        let editingTaskId = null;
+        let deletingTaskId = null;
+        let pausingTaskId = null;
+        let isOnline = navigator.onLine;
+
+        // 初期化
+        function init() {
+            loadData();
+            setDefaultDates();
+            renderTodayTasks();
+            renderCalendar();
+            updateSyncStatus();
+            setupOnlineListener();
+            registerServiceWorker();
+        }
+
+        // Service Worker登録（オフライン対応）
+        async function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registration = await navigator.serviceWorker.register('./service-worker.js');
+                    console.log('Service Worker registered successfully:', registration.scope);
+                } catch (error) {
+                    console.log('Service Worker registration failed:', error);
+                }
+            }
+        }
+
+        // オンライン/オフライン状態の監視
+        function setupOnlineListener() {
+            window.addEventListener('online', () => {
+                isOnline = true;
+                updateSyncStatus();
+            });
+
+            window.addEventListener('offline', () => {
+                isOnline = false;
+                updateSyncStatus();
+            });
+        }
+
+        // 同期状態の表示更新
+        function updateSyncStatus() {
+            const statusElement = document.getElementById('sync-status');
+            const textElement = document.getElementById('sync-text');
+            
+            if (isOnline) {
+                statusElement.className = 'sync-status online';
+                textElement.textContent = 'オンライン - データはこのデバイスに保存されています';
+            } else {
+                statusElement.className = 'sync-status offline';
+                textElement.textContent = 'オフライン - データはこのデバイスに保存されています';
+            }
+        }
+
+        // ローカルストレージからデータを読み込み
+        function loadData() {
+            const savedTasks = localStorage.getItem('tasks');
+            const savedCompletions = localStorage.getItem('completions');
+            
+            if (savedTasks) {
+                tasks = JSON.parse(savedTasks);
+            }
+            
+            if (savedCompletions) {
+                completions = JSON.parse(savedCompletions);
+            }
+        }
+
+        // データを保存
+        function saveData() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            localStorage.setItem('completions', JSON.stringify(completions));
+        }
+
+        // データをエクスポート
+        function exportData() {
+            const data = {
+                tasks: tasks,
+                completions: completions,
+                exportDate: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `task-backup-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            alert('データをエクスポートしました！');
+        }
+
+        // データをインポート
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (data.tasks && data.completions) {
+                        if (confirm('現在のデータは上書きされます。インポートしますか？')) {
+                            tasks = data.tasks;
+                            completions = data.completions;
+                            saveData();
+                            renderTodayTasks();
+                            renderFutureTasks();
+                            renderCalendar();
+                            alert('データをインポートしました！');
+                        }
+                    } else {
+                        alert('無効なファイル形式です。');
+                    }
+                } catch (error) {
+                    alert('ファイルの読み込みに失敗しました。');
+                }
+            };
+            reader.readAsText(file);
+            
+            // リセット
+            event.target.value = '';
+        }
+
+        // デフォルトの日付を設定
+        function setDefaultDates() {
+            const today = getTodayString();
+            document.getElementById('start-date-input').value = today;
+        }
+
+        // タブ切り替え
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tab + '-view').classList.add('active');
+            
+            if (tab === 'calendar') {
+                renderCalendar();
+            } else if (tab === 'future') {
+                renderFutureTasks();
+            } else if (tab === 'paused') {
+                renderPausedTasks();
+            }
+        }
+
+        // 日付を文字列に変換（YYYY-MM-DD）
+        function dateToString(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        // 今日の日付文字列
+        function getTodayString() {
+            return dateToString(new Date());
+        }
+
+        // タスクを追加
+        function addTask() {
+            const input = document.getElementById('new-task-input');
+            const taskName = input.value.trim();
+            const memo = document.getElementById('memo-input').value.trim();
+            const startDate = document.getElementById('start-date-input').value;
+            const endDate = document.getElementById('end-date-input').value;
+            
+            if (!taskName) {
+                alert('タスク名を入力してください');
+                return;
+            }
+
+            if (!startDate) {
+                alert('開始日を選択してください');
+                return;
+            }
+            
+            if (endDate && endDate < startDate) {
+                alert('終了日は開始日以降を選択してください');
+                return;
+            }
+            
+            const newTask = {
+                id: Date.now(),
+                name: taskName,
+                memo: memo,
+                createdDate: getTodayString(),
+                startDate: startDate,
+                expirationDate: endDate || null,
+                pausePeriods: [] // 一時停止期間の配列
+            };
+            
+            tasks.push(newTask);
+            saveData();
+            
+            input.value = '';
+            document.getElementById('memo-input').value = '';
+            document.getElementById('end-date-input').value = '';
+            setDefaultDates();
+            
+            renderTodayTasks();
+            alert('タスクを追加しました！');
+        }
+
+        // Enterキーでタスク追加
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                addTask();
+            }
+        }
+
+        // タスクに有効期限を設定（今日まで）
+        function expireTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                task.expirationDate = getTodayString();
+                saveData();
+                renderTodayTasks();
+                renderCalendar();
+            }
+        }
+
+        // 指定日のアクティブなタスクを取得
+        function getActiveTasksForDate(dateString) {
+            return tasks.filter(task => {
+                const startDate = task.startDate || task.createdDate;
+                const expirationDate = task.expirationDate;
+                
+                if (dateString < startDate) {
+                    return false;
+                }
+                
+                if (!expirationDate || dateString <= expirationDate) {
+                    // 一時停止期間をチェック
+                    if (task.pausePeriods && task.pausePeriods.length > 0) {
+                        for (const pause of task.pausePeriods) {
+                            if (dateString >= pause.start && dateString <= pause.end) {
+                                return false; // この日は一時停止中
+                            }
+                        }
+                    }
+                    return true;
+                }
+                
+                return false;
+            });
+        }
+
+        // タスクが指定日に一時停止中かチェック
+        function isTaskPausedOnDate(task, dateString) {
+            if (!task.pausePeriods || task.pausePeriods.length === 0) {
+                return false;
+            }
+            
+            for (const pause of task.pausePeriods) {
+                if (dateString >= pause.start && dateString <= pause.end) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // タスクの完了状態をトグル
+        function toggleTaskCompletion(taskId, dateString) {
+            if (!completions[dateString]) {
+                completions[dateString] = [];
+            }
+            
+            const index = completions[dateString].indexOf(taskId);
+            if (index > -1) {
+                completions[dateString].splice(index, 1);
+            } else {
+                completions[dateString].push(taskId);
+            }
+            
+            saveData();
+            renderTodayTasks();
+        }
+
+        // 今日のタスクを描画
+        function renderTodayTasks() {
+            const today = getTodayString();
+            const activeTasks = getActiveTasksForDate(today);
+            const completedTaskIds = completions[today] || [];
+            
+            const taskList = document.getElementById('task-list');
+            taskList.innerHTML = '';
+            
+            if (activeTasks.length === 0) {
+                taskList.innerHTML = '<div class="no-tasks">タスクがありません</div>';
+            } else {
+                activeTasks.forEach(task => {
+                    const isCompleted = completedTaskIds.includes(task.id);
+                    
+                    const li = document.createElement('li');
+                    li.className = 'task-item' + (isCompleted ? ' completed' : '');
+                    
+                    let html = `
+                        <div class="task-item-header">
+                            <input type="checkbox" ${isCompleted ? 'checked' : ''} 
+                                   onchange="toggleTaskCompletion(${task.id}, '${today}')">
+                            <span class="task-text">${task.name}</span>
+                        </div>
+                    `;
+                    
+                    if (task.memo) {
+                        html += `<div class="task-memo">${task.memo}</div>`;
+                    }
+                    
+                    // 一時停止期間を表示
+                    if (task.pausePeriods && task.pausePeriods.length > 0) {
+                        html += '<div class="pause-period"><strong>⏸ 一時停止期間:</strong>';
+                        task.pausePeriods.forEach((pause, index) => {
+                            html += `
+                                <div class="pause-period-item">
+                                    <span>${pause.start} ～ ${pause.end}</span>
+                                    <button onclick="removePausePeriod(${task.id}, ${index})">削除</button>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+                    
+                    const startDate = task.startDate || task.createdDate;
+                    const endDate = task.expirationDate;
+                    html += `<div class="task-dates">開始: ${startDate}${endDate ? ' | 終了: ' + endDate : ' | 終了日未設定'}</div>`;
+                    
+                    html += `
+                        <div class="task-actions">
+                            <button class="edit-btn" onclick="openEditModal(${task.id})">編集</button>
+                            <button class="pause-btn" onclick="openPauseModal(${task.id})">一時停止</button>
+                            <button class="expire-btn" onclick="expireTask(${task.id})">今日で終了</button>
+                            <button class="delete-btn" onclick="confirmDeleteTask(${task.id})">削除</button>
+                        </div>
+                    `;
+                    
+                    li.innerHTML = html;
+                    taskList.appendChild(li);
+                });
+            }
+            
+            document.getElementById('total-tasks').textContent = activeTasks.length;
+            document.getElementById('completed-tasks').textContent = completedTaskIds.length;
+            
+            const percentage = activeTasks.length > 0 
+                ? Math.round((completedTaskIds.length / activeTasks.length) * 100)
+                : 0;
+            document.getElementById('completion-percentage').textContent = percentage + '%';
+        }
+
+        // 編集モーダルを開く
+        function openEditModal(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            editingTaskId = taskId;
+            document.getElementById('edit-task-name').value = task.name;
+            document.getElementById('edit-start-date').value = task.startDate || task.createdDate;
+            document.getElementById('edit-end-date').value = task.expirationDate || '';
+            document.getElementById('edit-memo').value = task.memo || '';
+            
+            document.getElementById('edit-modal').classList.add('active');
+        }
+
+        // 編集モーダルを閉じる
+        function closeEditModal() {
+            editingTaskId = null;
+            document.getElementById('edit-modal').classList.remove('active');
+        }
+
+        // タスクの編集を保存
+        function saveTaskEdit() {
+            if (!editingTaskId) return;
+            
+            const task = tasks.find(t => t.id === editingTaskId);
+            if (!task) return;
+            
+            const newName = document.getElementById('edit-task-name').value.trim();
+            const newStartDate = document.getElementById('edit-start-date').value;
+            const newEndDate = document.getElementById('edit-end-date').value;
+            const newMemo = document.getElementById('edit-memo').value.trim();
+            
+            if (!newName) {
+                alert('タスク名を入力してください');
+                return;
+            }
+            
+            if (!newStartDate) {
+                alert('開始日を選択してください');
+                return;
+            }
+            
+            if (newEndDate && newEndDate < newStartDate) {
+                alert('終了日は開始日以降を選択してください');
+                return;
+            }
+            
+            task.name = newName;
+            task.startDate = newStartDate;
+            task.expirationDate = newEndDate || null;
+            task.memo = newMemo;
+            
+            saveData();
+            closeEditModal();
+            renderTodayTasks();
+            renderFutureTasks();
+            renderCalendar();
+        }
+
+        // 削除確認モーダルを開く
+        function confirmDeleteTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            deletingTaskId = taskId;
+            document.getElementById('delete-task-name').textContent = task.name;
+            document.getElementById('delete-modal').classList.add('active');
+        }
+
+        // 削除確認モーダルを閉じる
+        function closeDeleteModal() {
+            deletingTaskId = null;
+            document.getElementById('delete-modal').classList.remove('active');
+        }
+
+        // タスクを完全に削除
+        function deleteTask() {
+            if (!deletingTaskId) return;
+            
+            tasks = tasks.filter(t => t.id !== deletingTaskId);
+            
+            Object.keys(completions).forEach(date => {
+                completions[date] = completions[date].filter(id => id !== deletingTaskId);
+                if (completions[date].length === 0) {
+                    delete completions[date];
+                }
+            });
+            
+            saveData();
+            closeDeleteModal();
+            renderTodayTasks();
+            renderFutureTasks();
+            renderCalendar();
+        }
+
+        // 一時停止モーダルを開く
+        function openPauseModal(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            pausingTaskId = taskId;
+            document.getElementById('pause-task-name').textContent = task.name;
+            
+            // ラジオボタンを「今日だけ」にリセット
+            document.querySelector('input[name="pause-option"][value="today"]').checked = true;
+            
+            // カスタム日付入力を非表示
+            document.getElementById('custom-pause-dates').style.display = 'none';
+            
+            // デフォルト値を設定（カスタム選択時用）
+            const today = new Date();
+            const nextWeek = new Date();
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            
+            document.getElementById('pause-start-date').value = dateToString(today);
+            document.getElementById('pause-end-date').value = dateToString(nextWeek);
+            
+            document.getElementById('pause-modal').classList.add('active');
+        }
+
+        // カスタム日付入力の表示切替
+        function toggleCustomPauseDates() {
+            const customOption = document.querySelector('input[name="pause-option"][value="custom"]');
+            const customDatesDiv = document.getElementById('custom-pause-dates');
+            
+            if (customOption.checked) {
+                customDatesDiv.style.display = 'block';
+            } else {
+                customDatesDiv.style.display = 'none';
+            }
+        }
+
+        // 一時停止モーダルを閉じる
+        function closePauseModal() {
+            pausingTaskId = null;
+            document.getElementById('pause-modal').classList.remove('active');
+        }
+
+        // 一時停止期間を追加
+        function addPausePeriod() {
+            if (!pausingTaskId) return;
+            
+            const task = tasks.find(t => t.id === pausingTaskId);
+            if (!task) return;
+            
+            // 選択されたオプションを取得
+            const selectedOption = document.querySelector('input[name="pause-option"]:checked').value;
+            
+            let startDate, endDate;
+            const today = getTodayString();
+            
+            if (selectedOption === 'today') {
+                // 今日だけ
+                startDate = today;
+                endDate = today;
+            } else if (selectedOption === 'tomorrow') {
+                // 今日と明日
+                startDate = today;
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                endDate = dateToString(tomorrow);
+            } else if (selectedOption === 'custom') {
+                // カスタム期間
+                startDate = document.getElementById('pause-start-date').value;
+                endDate = document.getElementById('pause-end-date').value;
+                
+                if (!startDate || !endDate) {
+                    alert('開始日と終了日を指定してください');
+                    return;
+                }
+                
+                if (endDate < startDate) {
+                    alert('終了日は開始日以降を選択してください');
+                    return;
+                }
+            }
+            
+            // タスクの開始日と終了日の範囲内かチェック
+            const taskStart = task.startDate || task.createdDate;
+            const taskEnd = task.expirationDate;
+            
+            if (startDate < taskStart) {
+                alert('タスクの開始日より前の日付は指定できません');
+                return;
+            }
+            
+            if (taskEnd && endDate > taskEnd) {
+                alert('タスクの終了日より後の日付は指定できません');
+                return;
+            }
+            
+            // pausePeriodsが存在しない場合は初期化
+            if (!task.pausePeriods) {
+                task.pausePeriods = [];
+            }
+            
+            // 重複チェック
+            for (const pause of task.pausePeriods) {
+                if ((startDate >= pause.start && startDate <= pause.end) ||
+                    (endDate >= pause.start && endDate <= pause.end) ||
+                    (startDate <= pause.start && endDate >= pause.end)) {
+                    alert('既存の停止期間と重複しています');
+                    return;
+                }
+            }
+            
+            task.pausePeriods.push({ start: startDate, end: endDate });
+            
+            // 開始日順にソート
+            task.pausePeriods.sort((a, b) => a.start.localeCompare(b.start));
+            
+            saveData();
+            closePauseModal();
+            renderTodayTasks();
+            renderFutureTasks();
+            renderCalendar();
+            
+            let message = '一時停止期間を追加しました';
+            if (selectedOption === 'today') {
+                message = '今日のタスクを停止しました';
+            } else if (selectedOption === 'tomorrow') {
+                message = '今日と明日のタスクを停止しました';
+            }
+            alert(message);
+        }
+
+        // 一時停止期間を削除
+        function removePausePeriod(taskId, index) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task || !task.pausePeriods) return;
+            
+            if (confirm('この停止期間を削除しますか？タスクはTo Doリストに復帰します。')) {
+                task.pausePeriods.splice(index, 1);
+                saveData();
+                renderTodayTasks();
+                renderPausedTasks();
+                renderFutureTasks();
+                renderCalendar();
+            }
+        }
+
+        // タスクの現在有効な停止期間を取得
+        function getCurrentPausePeriod(task) {
+            const today = getTodayString();
+            if (!task.pausePeriods || task.pausePeriods.length === 0) {
+                return null;
+            }
+            
+            for (const pause of task.pausePeriods) {
+                if (today >= pause.start && today <= pause.end) {
+                    return pause;
+                }
+            }
+            return null;
+        }
+
+        // 停止中のタスクを描画
+        function renderPausedTasks() {
+            const container = document.getElementById('paused-tasks-container');
+            container.innerHTML = '';
+            
+            const today = getTodayString();
+            
+            // 今日停止中のタスクを取得
+            const pausedTasks = tasks.filter(task => {
+                const startDate = task.startDate || task.createdDate;
+                const expirationDate = task.expirationDate;
+                
+                // タスク期間内かチェック
+                if (today < startDate || (expirationDate && today > expirationDate)) {
+                    return false;
+                }
+                
+                // 今日停止中かチェック
+                return isTaskPausedOnDate(task, today);
+            });
+            
+            if (pausedTasks.length === 0) {
+                container.innerHTML = '<div class="no-tasks">現在停止中のタスクはありません</div>';
+                return;
+            }
+            
+            const taskList = document.createElement('ul');
+            taskList.className = 'task-list';
+            
+            pausedTasks.forEach(task => {
+                const li = document.createElement('li');
+                li.className = 'task-item';
+                
+                const currentPause = getCurrentPausePeriod(task);
+                
+                let html = `
+                    <div class="task-item-header">
+                        <span class="task-text">${task.name}</span>
+                        <span class="task-paused-indicator">停止中</span>
+                    </div>
+                `;
+                
+                if (task.memo) {
+                    html += `<div class="task-memo">${task.memo}</div>`;
+                }
+                
+                // 現在の停止期間を表示
+                if (currentPause) {
+                    html += `
+                        <div class="pause-period">
+                            <strong>⏸ 停止期間:</strong>
+                            <div class="pause-period-item">
+                                <span>${currentPause.start} ～ ${currentPause.end}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                const startDate = task.startDate || task.createdDate;
+                const endDate = task.expirationDate;
+                html += `<div class="task-dates">開始: ${startDate}${endDate ? ' | 終了: ' + endDate : ' | 終了日未設定'}</div>`;
+                
+                // 停止期間のインデックスを取得
+                const pauseIndex = task.pausePeriods.findIndex(p => 
+                    p.start === currentPause.start && p.end === currentPause.end
+                );
+                
+                html += `
+                    <div class="task-actions">
+                        <button class="resume-btn" onclick="event.preventDefault(); resumeTask(${task.id}, ${pauseIndex}); return false;">今すぐ復帰</button>
+                        <button class="edit-btn" onclick="openEditModal(${task.id})">編集</button>
+                        <button class="delete-btn" onclick="confirmDeleteTask(${task.id})">削除</button>
+                    </div>
+                `;
+                
+                li.innerHTML = html;
+                taskList.appendChild(li);
+            });
+            
+            container.appendChild(taskList);
+        }
+
+        // タスクを今すぐ復帰（現在の停止期間の終了日を昨日に変更）
+        function resumeTask(taskId, pauseIndex) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task || !task.pausePeriods || !task.pausePeriods[pauseIndex]) return;
+            
+            const today = getTodayString();
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayString = dateToString(yesterday);
+            
+            const pausePeriod = task.pausePeriods[pauseIndex];
+            let shouldProceed = false;
+            
+            // 停止期間の開始日が今日以降の場合は、期間全体を削除
+            if (pausePeriod.start >= today) {
+                if (confirm('この停止期間はまだ開始していません。期間全体を削除しますか？')) {
+                    task.pausePeriods.splice(pauseIndex, 1);
+                    shouldProceed = true;
+                }
+            } 
+            // 停止期間の開始日が今日より前の場合は、終了日を昨日に変更
+            else {
+                const startDate = pausePeriod.start;
+                const message = `このタスクを今日から復帰させますか？\n\n` +
+                               `停止記録: ${startDate} ～ ${yesterdayString}\n` +
+                               `復帰日: ${today}`;
+                
+                if (confirm(message)) {
+                    // 停止期間の終了日を昨日に変更
+                    pausePeriod.end = yesterdayString;
+                    shouldProceed = true;
+                }
+            }
+            
+            // ユーザーが確認した場合のみ処理を続ける
+            if (shouldProceed) {
+                saveData();
+                renderTodayTasks();
+                renderPausedTasks();
+                renderFutureTasks();
+                renderCalendar();
+                
+                // 今日のタスクタブに切り替え
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                
+                const todayTab = Array.from(document.querySelectorAll('.tab')).find(t => 
+                    t.textContent.includes('今日のタスク')
+                );
+                if (todayTab) {
+                    todayTab.classList.add('active');
+                    document.getElementById('today-view').classList.add('active');
+                }
+            }
+        }
+
+        // 未来のタスクを描画
+        function renderFutureTasks() {
+            const container = document.getElementById('future-tasks-container');
+            container.innerHTML = '';
+            
+            const today = getTodayString();
+            const tasksByDate = {};
+            
+            for (let i = 1; i <= 30; i++) {
+                const date = new Date();
+                date.setDate(date.getDate() + i);
+                const dateString = dateToString(date);
+                const tasksForDate = getActiveTasksForDate(dateString);
+                
+                if (tasksForDate.length > 0) {
+                    tasksByDate[dateString] = tasksForDate;
+                }
+            }
+            
+            if (Object.keys(tasksByDate).length === 0) {
+                container.innerHTML = '<div class="no-tasks">今後30日間にタスクはありません</div>';
+                return;
+            }
+            
+            const sortedDates = Object.keys(tasksByDate).sort();
+            
+            sortedDates.forEach(dateString => {
+                const dateSection = document.createElement('div');
+                dateSection.className = 'date-section';
+                
+                const date = new Date(dateString + 'T00:00:00');
+                const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+                
+                dateSection.innerHTML = `<h3>${dateString} (${dayOfWeek})</h3>`;
+                
+                const taskList = document.createElement('ul');
+                taskList.className = 'task-list';
+                
+                tasksByDate[dateString].forEach(task => {
+                    const li = document.createElement('li');
+                    li.className = 'task-item';
+                    
+                    let html = `
+                        <div class="task-item-header">
+                            <span class="task-text">${task.name}</span>
+                        </div>
+                    `;
+                    
+                    if (task.memo) {
+                        html += `<div class="task-memo">${task.memo}</div>`;
+                    }
+                    
+                    // 一時停止期間を表示
+                    if (task.pausePeriods && task.pausePeriods.length > 0) {
+                        html += '<div class="pause-period"><strong>⏸ 一時停止期間:</strong>';
+                        task.pausePeriods.forEach((pause, index) => {
+                            html += `
+                                <div class="pause-period-item">
+                                    <span>${pause.start} ～ ${pause.end}</span>
+                                    <button onclick="removePausePeriod(${task.id}, ${index})">削除</button>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+                    
+                    const startDate = task.startDate || task.createdDate;
+                    const endDate = task.expirationDate;
+                    html += `<div class="task-dates">開始: ${startDate}${endDate ? ' | 終了: ' + endDate : ' | 終了日未設定'}</div>`;
+                    
+                    html += `
+                        <div class="task-actions">
+                            <button class="edit-btn" onclick="openEditModal(${task.id})">編集</button>
+                            <button class="pause-btn" onclick="openPauseModal(${task.id})">一時停止</button>
+                            <button class="delete-btn" onclick="confirmDeleteTask(${task.id})">削除</button>
+                        </div>
+                    `;
+                    
+                    li.innerHTML = html;
+                    taskList.appendChild(li);
+                });
+                
+                dateSection.appendChild(taskList);
+                container.appendChild(dateSection);
+            });
+        }
+
+        // カレンダーを描画
+        function renderCalendar() {
+            const year = currentCalendarDate.getFullYear();
+            const month = currentCalendarDate.getMonth();
+            
+            document.getElementById('calendar-month').textContent = 
+                `${year}年 ${month + 1}月`;
+            
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+            
+            const dayHeaders = ['日', '月', '火', '水', '木', '金', '土'];
+            dayHeaders.forEach(day => {
+                const header = document.createElement('div');
+                header.className = 'calendar-day-header';
+                header.textContent = day;
+                grid.appendChild(header);
+            });
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            
+            const startDayOfWeek = firstDay.getDay();
+            for (let i = 0; i < startDayOfWeek; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.className = 'calendar-day other-month';
+                grid.appendChild(emptyDay);
+            }
+            
+            const today = getTodayString();
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const date = new Date(year, month, day);
+                const dateString = dateToString(date);
+                
+                const activeTasks = getActiveTasksForDate(dateString);
+                const completedTaskIds = completions[dateString] || [];
+                
+                const percentage = activeTasks.length > 0 
+                    ? Math.round((completedTaskIds.length / activeTasks.length) * 100)
+                    : 0;
+                
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'calendar-day';
+                if (dateString === today) {
+                    dayDiv.classList.add('today');
+                }
+                
+                let rateClass = '';
+                if (percentage >= 80) rateClass = 'high';
+                else if (percentage >= 50) rateClass = 'medium';
+                else if (activeTasks.length > 0) rateClass = 'low';
+                
+                dayDiv.innerHTML = `
+                    <div class="day-number">${day}</div>
+                    ${activeTasks.length > 0 ? 
+                        `<div class="completion-rate ${rateClass}">${percentage}%</div>` : 
+                        '<div style="font-size: 12px; color: #999;">-</div>'}
+                `;
+                
+                grid.appendChild(dayDiv);
+            }
+        }
+
+        // 前月へ
+        function previousMonth() {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+            renderCalendar();
+        }
+
+        // 次月へ
+        function nextMonth() {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+            renderCalendar();
+        }
+
+        // ページ読み込み時に初期化
+        init();
+    </script>
+</body>
+</html>
