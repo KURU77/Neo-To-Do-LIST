@@ -424,6 +424,7 @@
         .calendar-day:hover {
             border-color: #667eea;
             background: #f8f9ff;
+            transform: scale(1.05);
         }
 
         .calendar-day.other-month {
@@ -973,6 +974,27 @@
                 <div class="modal-actions">
                     <button class="cancel-btn" onclick="closePauseModal()">キャンセル</button>
                     <button onclick="addPausePeriod()">停止期間を追加</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 日付別タスク編集モーダル -->
+        <div id="day-modal" class="modal">
+            <div class="modal-content" style="max-width: 600px;">
+                <h2 id="day-modal-title">タスクの編集</h2>
+                <p style="color: #666; margin-bottom: 20px;">この日のタスクの完了状態を編集できます。</p>
+                
+                <div style="background: #f8f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; color: #667eea;">完了率</span>
+                        <span id="day-modal-rate" style="font-size: 24px; font-weight: bold; color: #667eea;">0%</span>
+                    </div>
+                </div>
+                
+                <div id="day-task-list" style="max-height: 400px; overflow-y: auto;"></div>
+                
+                <div class="modal-actions">
+                    <button class="cancel-btn" onclick="closeDayModal()">閉じる</button>
                 </div>
             </div>
         </div>
@@ -1862,6 +1884,9 @@
                     dayDiv.classList.add('today');
                 }
                 
+                // クリックで過去の日付のタスクを編集可能に
+                dayDiv.onclick = () => openDayModal(dateString);
+                
                 let rateClass = '';
                 if (percentage >= 80) rateClass = 'high';
                 else if (percentage >= 50) rateClass = 'medium';
@@ -1888,6 +1913,95 @@
         function nextMonth() {
             currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
             renderCalendar();
+        }
+
+        // 日付別タスク編集モーダルを開く
+        function openDayModal(dateString) {
+            const activeTasks = getActiveTasksForDate(dateString);
+            
+            if (activeTasks.length === 0) {
+                return; // タスクがない日はモーダルを開かない
+            }
+            
+            const completedTaskIds = completions[dateString] || [];
+            
+            // 日付表示を整形
+            const date = new Date(dateString + 'T00:00:00');
+            const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+            const formattedDate = `${dateString} (${dayOfWeek})`;
+            
+            document.getElementById('day-modal-title').textContent = formattedDate + ' のタスク';
+            
+            // 完了率を表示
+            const percentage = activeTasks.length > 0 
+                ? Math.round((completedTaskIds.length / activeTasks.length) * 100)
+                : 0;
+            document.getElementById('day-modal-rate').textContent = percentage + '%';
+            
+            // タスクリストを表示
+            const taskListContainer = document.getElementById('day-task-list');
+            taskListContainer.innerHTML = '';
+            
+            activeTasks.forEach(task => {
+                const isCompleted = completedTaskIds.includes(task.id);
+                
+                const taskDiv = document.createElement('div');
+                taskDiv.style.cssText = 'padding: 15px; margin-bottom: 10px; background: white; border-radius: 8px; border: 2px solid #e0e0e0;';
+                
+                taskDiv.innerHTML = `
+                    <div style="display: flex; align-items: center;">
+                        <input type="checkbox" 
+                               ${isCompleted ? 'checked' : ''} 
+                               onchange="toggleTaskCompletionForDate(${task.id}, '${dateString}')"
+                               style="width: 20px; height: 20px; margin-right: 15px; cursor: pointer;">
+                        <div style="flex: 1;">
+                            <div style="font-size: 16px; font-weight: bold; ${isCompleted ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${task.name}</div>
+                            ${task.memo ? `<div style="font-size: 13px; color: #666; margin-top: 5px;">${task.memo}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                taskListContainer.appendChild(taskDiv);
+            });
+            
+            document.getElementById('day-modal').classList.add('active');
+        }
+
+        // 日付別タスク編集モーダルを閉じる
+        function closeDayModal() {
+            document.getElementById('day-modal').classList.remove('active');
+        }
+
+        // 特定の日付のタスク完了状態をトグル
+        function toggleTaskCompletionForDate(taskId, dateString) {
+            if (!completions[dateString]) {
+                completions[dateString] = [];
+            }
+            
+            const index = completions[dateString].indexOf(taskId);
+            if (index > -1) {
+                completions[dateString].splice(index, 1);
+            } else {
+                completions[dateString].push(taskId);
+            }
+            
+            saveData();
+            
+            // モーダル内の表示を更新
+            const activeTasks = getActiveTasksForDate(dateString);
+            const completedTaskIds = completions[dateString] || [];
+            const percentage = activeTasks.length > 0 
+                ? Math.round((completedTaskIds.length / activeTasks.length) * 100)
+                : 0;
+            document.getElementById('day-modal-rate').textContent = percentage + '%';
+            
+            // カレンダーも更新
+            renderCalendar();
+            
+            // 今日の日付の場合は今日のタスクビューも更新
+            if (dateString === getTodayString()) {
+                renderTodayTasks();
+            }
         }
 
         // ページ読み込み時に初期化
